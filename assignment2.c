@@ -26,6 +26,8 @@ int partition(double lyst[], int lo, int hi);
 void quicksortHelper(double lyst[], int lo, int hi);
 void quicksort(double lyst[], int size);
 int isSorted(double lyst[], int size);
+int *lv;
+
 
 //for parallel implementation
 void parallelQuicksort(double lyst[], int size, int tlevel);
@@ -54,6 +56,7 @@ int main (int argc, char *argv[])
     struct timeval start, end;
     double diff;
     int i;
+    int *lv = (int *) malloc(THREAD_LEVEL*sizeof(int));
     
     srand(time(NULL)); //seed random
     
@@ -329,19 +332,29 @@ int compare_doubles (const void *a, const void *b)
     return (*da > *db) - (*da < *db);
 }
 
-void peerpart(double lyst[], int size, int tlevel){
+int* peerpart(double lyst[], int size, int tlevel){
     
     int j,i;
     int *k = (int *) malloc(tlevel*sizeof(int));
 
-    for(j = 0; j<tlevel; j++){
-   	 for(i = 0; i<size; i++){
+    j = 0;
+    while(lyst[j]>1/tlevel){
+	j++;
+    }
+    swap(lyst,0,j);	
+
+    k[0] = 0;
+    for(j = 0; j<tlevel-1; j++){
+   	 for(i = 1; i<size; i++){
 		if(lyst[i] < j/tlevel){
 		k[j]++;
-		swap(lyst, i, k[j]);
+		swap(lyst, i, k[j]+1);
 		}
    	 } 
+	k[j+1] = k[j];
     }
+
+    return k;
 
     }
 
@@ -350,7 +363,7 @@ This i peer to peer main
  */
 void peerpartQ(double lyst[], int size, int tlevel)
 {
-    int rc, i,j,k;
+    int rc, i,j;
     void *status;
     
     //Want joinable threads (usually default).
@@ -358,15 +371,7 @@ void peerpartQ(double lyst[], int size, int tlevel)
     pthread_attr_init(&attr);
     pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
 
-    for(j = 0; j<tlevel; j++){
-   	 for(i = 0; i<size; i++){
-		if(lyst[i] < j/tlevel){
-		k++;
-		swap(lyst, i, k);
-		}
-   	 } 
-    }
-	
+    lv = peerpart(lyst, size, tlevel);
     
     //pthread function can take only one argument, so struct.
     struct thread_data td;
