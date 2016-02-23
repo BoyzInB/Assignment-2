@@ -18,7 +18,7 @@
 #include <string.h>
 
 #define DNUM 1000000
-#define THREAD_LEVEL 10
+#define THREAD_LEVEL 4
 
 //for sequential and parallel implementation
 void swap(double lyst[], int i, int j);
@@ -32,6 +32,7 @@ int *lv;
 //for parallel implementation
 void parallelQuicksort(double lyst[], int size, int tlevel);
 void *parallelQuicksortHelper(void *threadarg);
+int *peerpart(double lyst[], int size, int tlevel);
 struct thread_data{
     double *lyst;
     int low;
@@ -79,9 +80,19 @@ int main (int argc, char *argv[])
     
     //copy list.
     memcpy(lyst, lystbck, NUM*sizeof(double));
+
+    peerpart(lyst, NUM, THREAD_LEVEL); 
+
+    for(i = 0; i <NUM; i++)
+	printf("%f ",lyst[i]);
+    printf("\n");
+
+    for(i = 0; i <NUM; i++)
+	printf("%f ",lystbck[i]);
+    printf("\n");
     
     
-    //Sequential mergesort, and timing.
+ /*   //Sequential mergesort, and timing.
     gettimeofday(&start, NULL);
     quicksort(lyst, NUM);
     gettimeofday(&end, NULL);
@@ -133,7 +144,7 @@ int main (int argc, char *argv[])
     //Compute time difference.
     diff = ((end.tv_sec * 1000000 + end.tv_usec)
             - (start.tv_sec * 1000000 + start.tv_usec))/1000000.0;
-    printf("Built-in qsort took: %lf sec.\n", diff);
+    printf("Built-in qsort took: %lf sec.\n", diff);*/
     
     
     
@@ -336,20 +347,16 @@ int* peerpart(double lyst[], int size, int tlevel){
     
     int j,i;
     int *k = (int *) malloc(tlevel*sizeof(int));
-
-    j = 0;
-    while(lyst[j]>1/tlevel){
-	j++;
-    }
-    swap(lyst,0,j);	
+    double z;
 
     k[0] = 0;
     for(j = 0; j<tlevel-1; j++){
-   	 for(i = 1; i<size; i++){
-		if(lyst[i] < j/tlevel){
-		k[j]++;
-		swap(lyst, i, k[j]+1);
-		}
+	 z = (double)(j+1)/tlevel; 
+   	 for(i = k[j]; i<size; i++){ 
+		if(lyst[i] < z){ 
+			swap(lyst, i, (k[j]));
+			k[j]=k[j]+1;
+		} 
    	 } 
 	k[j+1] = k[j];
     }
