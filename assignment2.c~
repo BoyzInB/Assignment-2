@@ -332,12 +332,13 @@ int compare_doubles (const void *a, const void *b)
 void peerpart(double lyst[], int size, int tlevel){
     
     int j,i,k;
+    int *k;
 
     for(j = 0; j<tlevel; j++){
    	 for(i = 0; i<size; i++){
 		if(lyst[i] < j/tlevel){
 		k++;
-		swap(lyst[], i, k);
+		swap(lyst, i, k);
 		}
    	 } 
     }
@@ -361,7 +362,7 @@ void peerpartQ(double lyst[], int size, int tlevel)
    	 for(i = 0; i<size; i++){
 		if(lyst[i] < j/tlevel){
 		k++;
-		swap(lyst[], i, k);
+		swap(lyst, i, k);
 		}
    	 } 
     }

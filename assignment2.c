@@ -332,6 +332,7 @@ int compare_doubles (const void *a, const void *b)
 void peerpart(double lyst[], int size, int tlevel){
     
     int j,i,k;
+    int *k = (int *) malloc(NUM*sizeof(int));
 
     for(j = 0; j<tlevel; j++){
    	 for(i = 0; i<size; i++){
