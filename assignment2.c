@@ -39,9 +39,6 @@ struct thread_data{
 //thread_data should be thread-safe, since while lyst is
 //shared, [low, high] will not overlap among threads.
 
-//for the builtin qsort, for fun:
-int compare_doubles (const void *a, const void *b);
-
 /*
  Main method:
  -generate random list
@@ -54,7 +51,7 @@ int main (int argc, char *argv[])
     struct timeval start, end;
     double diff;
     
-    srand(time(NULL)); //seed random
+    srand48(time(NULL)); //seed random
     
     int NUM = DNUM;
     if (argc == 2) //user specified list size.
@@ -70,7 +67,7 @@ int main (int argc, char *argv[])
     //Populate random original/backup list.
     for(int i = 0; i < NUM; i ++)
     {
-        lystbck[i] = 1.0*rand()/RAND_MAX;
+        lystbck[i] = drand48();//1.0*rand()/RAND_MAX;
     }
     
     //copy list.
@@ -112,26 +109,7 @@ int main (int argc, char *argv[])
     diff = ((end.tv_sec * 1000000 + end.tv_usec)
             - (start.tv_sec * 1000000 + start.tv_usec))/1000000.0;
     printf("Parallel quicksort took: %lf sec.\n", diff);
-    
-    
-    
-    //Finally, built-in for reference:
-    memcpy(lyst, lystbck, NUM*sizeof(double));
-    gettimeofday(&start, NULL);
-    qsort(lyst, NUM, sizeof(double), compare_doubles);
-    gettimeofday(&end, NULL);
-    
-    if (!isSorted(lyst, NUM))
-    {
-        printf("Oops, lyst did not get sorted by qsort.\n");
-    }
-    
-    //Compute time difference.
-    diff = ((end.tv_sec * 1000000 + end.tv_usec)
-            - (start.tv_sec * 1000000 + start.tv_usec))/1000000.0;
-    printf("Built-in qsort took: %lf sec.\n", diff);
-    
-    
+
     
     free(lyst);
     free(lystbck);
@@ -314,15 +292,4 @@ int isSorted(double lyst[], int size)
     }
     return 1;
 }
-
-//for the built-in qsort comparator
-//from http://www.gnu.org/software/libc/manual/html_node/Comparison-Functions.html#Comparison-Functions
-int compare_doubles (const void *a, const void *b)
-{
-    const double *da = (const double *) a;
-    const double *db = (const double *) b;
-    
-    return (*da > *db) - (*da < *db);
-}
-
 
