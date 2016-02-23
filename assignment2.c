@@ -9,6 +9,8 @@
  $ ./quicksort [1000000]
  */
 
+/*this is from me - Robin*/
+
 
 #include <pthread.h>
 #include <stdio.h>
@@ -306,7 +308,7 @@ int isSorted(double lyst[], int size)
 {
     for (int i = 1; i < size; i ++)
     {
-        if (lyst[i] < lyst[i-1]) 
+        if (lyst[i] < lyst[i-1])
         {
             printf("at loc %d, %e < %e \n", i, lyst[i], lyst[i-1]);
             return 0;
