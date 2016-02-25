@@ -17,7 +17,7 @@
 #include <sys/time.h>
 #include <string.h>
 
-#define DNUM 12
+#define DNUM 1000000
 #define THREAD_LEVEL 4
 
 //for sequential and parallel implementation
@@ -26,8 +26,6 @@ int partition(double lyst[], int lo, int hi);
 void quicksortHelper(double lyst[], int lo, int hi);
 void quicksort(double lyst[], int size);
 int isSorted(double lyst[], int size);
-void peerpartQ(double lyst[], int size, int tlevel);
-
 int *lv;
 
 
@@ -62,7 +60,6 @@ int main (int argc, char *argv[])
     int *lv = (int *) malloc(THREAD_LEVEL*sizeof(int));
     
     srand(time(NULL)); //seed random
-
     
     int NUM = DNUM;
     if (argc == 2) //user specified list size.
@@ -78,29 +75,21 @@ int main (int argc, char *argv[])
     //Populate random original/backup list.
     for(i = 0; i < NUM; i ++)
     {
-        lystbck[i] = 1.0*drand48();
+        lystbck[i] = 1.0*rand()/RAND_MAX;
     }
     
     //copy list.
     memcpy(lyst, lystbck, NUM*sizeof(double));
     
-    //peerpart(lyst, NUM, THREAD_LEVEL);
+    peerpart(lyst, NUM, THREAD_LEVEL);
     
-    peerpartQ(lyst, NUM, THREAD_LEVEL);
-    
-    
-    /*for(i = 0; i <NUM; i++)
+    for(i = 0; i <NUM; i++)
         printf("%f ",lyst[i]);
     printf("\n");
     
     for(i = 0; i <NUM; i++)
         printf("%f ",lystbck[i]);
     printf("\n");
-    */
-    if (!isSorted(lyst, NUM))
-    {
-        printf("Oops, lyst did not get sorted by quicksort.\n");
-    }
     
     
     /*   //Sequential mergesort, and timing.
@@ -370,9 +359,7 @@ int* peerpart(double lyst[], int size, int tlevel){
             }
         }
         k[j+1] = k[j];
-
     }
-   
     
     return k;
     
