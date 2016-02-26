@@ -18,7 +18,7 @@
 #include <string.h>
 
 #define DNUM 1000000
-#define THREAD_LEVEL 4
+#define THREAD_LEVEL 8
 
 //for sequential and parallel implementation
 void swap(double lyst[], int i, int j);
@@ -26,7 +26,9 @@ int partition(double lyst[], int lo, int hi);
 void quicksortHelper(double lyst[], int lo, int hi);
 void quicksort(double lyst[], int size);
 int isSorted(double lyst[], int size);
+void peerpartQ(double lyst[], int size, int tlevel);
 int *lv;
+int *k;
 
 
 //for parallel implementation
@@ -38,6 +40,10 @@ struct thread_data{
     int low;
     int high;
     int level;
+};
+struct thread_d{ 
+    int t;
+    double *lyst;
 };
 //thread_data should be thread-safe, since while lyst is
 //shared, [low, high] will not overlap among threads.
@@ -58,6 +64,7 @@ int main (int argc, char *argv[])
     double diff;
     int i;
     int *lv = (int *) malloc(THREAD_LEVEL*sizeof(int));
+    k = (int *) malloc((THREAD_LEVEL+1)*sizeof(int));
     
     srand(time(NULL)); //seed random
     
@@ -79,20 +86,10 @@ int main (int argc, char *argv[])
     }
     
     //copy list.
-    memcpy(lyst, lystbck, NUM*sizeof(double));
-
-    peerpart(lyst, NUM, THREAD_LEVEL); 
-
-    for(i = 0; i <NUM; i++)
-	printf("%f ",lyst[i]);
-    printf("\n");
-
-    for(i = 0; i <NUM; i++)
-	printf("%f ",lystbck[i]);
-    printf("\n");
+    memcpy(lyst, lystbck, NUM*sizeof(double)); 
     
     
- /*   //Sequential mergesort, and timing.
+   /* //Sequential mergesort, and timing.
     gettimeofday(&start, NULL);
     quicksort(lyst, NUM);
     gettimeofday(&end, NULL);
@@ -122,31 +119,36 @@ int main (int argc, char *argv[])
     {
         printf("Oops, lyst did not get sorted by parallelQuicksort.\n");
     }
+
     
     //Compute time difference.
     diff = ((end.tv_sec * 1000000 + end.tv_usec)
             - (start.tv_sec * 1000000 + start.tv_usec))/1000000.0;
-    printf("Parallel quicksort took: %lf sec.\n", diff);
+    printf("Parallel quicksort took: %lf sec.\n", diff);*/
+
+    //Now, peer-parallel quicksort.
     
+    //copy list.
+    //memcpy(lyst, lystbck, NUM*sizeof(double));
     
-    
-    //Finally, built-in for reference:
-    memcpy(lyst, lystbck, NUM*sizeof(double));
     gettimeofday(&start, NULL);
-    qsort(lyst, NUM, sizeof(double), compare_doubles);
+    peerpartQ(lyst, NUM, THREAD_LEVEL);
     gettimeofday(&end, NULL);
     
     if (!isSorted(lyst, NUM))
     {
-        printf("Oops, lyst did not get sorted by qsort.\n");
+        printf("Oops, lyst did not get sorted by peer-parallelQuicksort.\n");
     }
+
     
     //Compute time difference.
     diff = ((end.tv_sec * 1000000 + end.tv_usec)
             - (start.tv_sec * 1000000 + start.tv_usec))/1000000.0;
-    printf("Built-in qsort took: %lf sec.\n", diff);*/
-    
-    
+    printf("Peer-Parallel quicksort took: %lf sec.\n", diff);
+
+    for(i=0;i<THREAD_LEVEL; i++)
+	printf("k%d:%d ",i,k[i]);
+    printf("\n"); 
     
     free(lyst);
     free(lystbck);
@@ -185,10 +187,18 @@ int partition(double lyst[], int lo, int hi)
         if (lyst[i] < pivot)
         {
             swap(lyst, i, b);
+                        if(lyst[b] < 0.0002)
+				printf("I FUCKED UP BOSS: %f\n",lyst[b]);
+                        if(lyst[i] < 0.0002)
+				printf("I FUCKED UP BOSS: %d\n",i);
             b ++;
         }
     }
     swap(lyst, hi, b);
+                        if(lyst[b] < 0.0002)
+				printf("I FUCKED UP BOSS: %d\n",b);
+                        if(lyst[hi] < 0.00002)
+				printf("I FUCKED UP BOSS: %d\n",hi);
     return b;
 }
 
@@ -343,23 +353,41 @@ int compare_doubles (const void *a, const void *b)
     return (*da > *db) - (*da < *db);
 }
 
+void *qParaHelper(void *args)
+{
+
+    struct thread_d *my_data;
+    my_data = (struct thread_d *) args;
+    int lo = k[my_data->t];
+    int hi = k[my_data->t+1];
+
+    if (lo >= hi){ 
+     return;
+	}
+
+    int b = partition(my_data->lyst, lo, hi);
+    quicksortHelper(my_data->lyst, lo, b-1);
+    quicksortHelper(my_data->lyst, b+1, hi);
+}
+
 int* peerpart(double lyst[], int size, int tlevel){
     
-    int j,i;
-    int *k = (int *) malloc(tlevel*sizeof(int));
+    int j,i; 
     double z;
 
     k[0] = 0;
+    k[1] = 0;
     for(j = 0; j<tlevel-1; j++){
 	 z = (double)(j+1)/tlevel; 
-   	 for(i = k[j]; i<size; i++){ 
+   	 for(i = k[j+1]; i<size; i++){ 
 		if(lyst[i] < z){ 
-			swap(lyst, i, (k[j]));
-			k[j]=k[j]+1;
+			swap(lyst, i, (k[j+1]));
+			k[j+1]++;
 		} 
    	 } 
-	k[j+1] = k[j];
+	k[j+2] = k[j+1];
     }
+    k[tlevel-1] = size-1;
 
     return k;
 
@@ -370,68 +398,11 @@ This i peer to peer main
  */
 void peerpartQ(double lyst[], int size, int tlevel)
 {
-    int rc, i,j;
-    void *status;
-    
-    //Want joinable threads (usually default).
-    pthread_attr_t attr;
-    pthread_attr_init(&attr);
-    pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
-
-    lv = peerpart(lyst, size, tlevel);
-    
-    //pthread function can take only one argument, so struct.
-    struct thread_data td;
-    td.lyst = lyst;
-    td.low = 0;
-    td.high = size - 1;
-    td.level = tlevel;
-    
-    //The top-level thread.
-    pthread_t theThread;
-    rc = pthread_create(&theThread, &attr, parallelQuicksortHelper,
-                        (void *) &td);
-    if (rc)
-    {
-        printf("ERROR; return code from pthread_create() is %d\n", rc);
-        exit(-1);
-    }
-    
-    //Now join the thread (wait, as joining blocks) and quit.
-    pthread_attr_destroy(&attr);
-    rc = pthread_join(theThread, &status);
-    if (rc)
-    {
-        printf("ERROR; return code from pthread_join() is %d\n", rc);
-        exit(-1);
-    }
-    //printf("Main: completed join with top thread having a status of %ld\n",
-    //		(long)status);
-    
-}
-
-
-/*
- This is the peer-to-peer helper.
- */
-void *peerpartQHelp(void *threadarg)
-{
     int mid, t, rc;
     void *status;
+    pthread_t threads[tlevel-1];
     
-    struct thread_data *my_data;
-    my_data = (struct thread_data *) threadarg;
-    
-    //fyi:
-    //printf("Thread responsible for [%d, %d], level %d.\n",
-    //		my_data->low, my_data->high, my_data->level);
-    
-    if (my_data->level <= 0 || my_data->low == my_data->high)
-    {
-        //We have plenty of threads, finish with sequential.
-        quicksortHelper(my_data->lyst, my_data->low, my_data->high);
-        pthread_exit(NULL);
-    }
+    struct thread_d *my_data; 
     
     //Want joinable threads (usually default).
     pthread_attr_t attr;
@@ -439,51 +410,29 @@ void *peerpartQHelp(void *threadarg)
     pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
     
     //Now we partition our part of the lyst.
-    mid = partition(my_data->lyst, my_data->low, my_data->high);
+    peerpart(lyst, size, tlevel);
     
     //At this point, we will create threads for the
     //left and right sides.  Must create their data args.
-    struct thread_data thread_data_array[2];
+    struct thread_d thread_data_array[tlevel-1];
+    thread_data_array[tlevel-1].lyst = lyst;
+    thread_data_array[tlevel-1].t = tlevel-1;
     
-    for (t = 0; t < 2; t ++)
+    for (t = 0; t < tlevel-1; t ++)
     {
-        thread_data_array[t].lyst = my_data->lyst;
-        thread_data_array[t].level = my_data->level - 1;
-    }
-    thread_data_array[0].low = my_data->low;
-    thread_data_array[0].high = mid-1;
-    thread_data_array[1].low = mid+1;
-    thread_data_array[1].high = my_data->high;
-    
-    //Now, instantiate the threads.
-    //In quicksort of course, due to the transitive property,
-    //no elements in the left and right sides of mid will have
-    //to be compared again.
-    pthread_t threads[2];
-    for (t = 0; t < 2; t ++)
-    {
-        rc = pthread_create(&threads[t], &attr, parallelQuicksortHelper,
+        thread_data_array[t].lyst = lyst;
+        thread_data_array[t].t = t;
+        rc = pthread_create(&threads[t], &attr, &qParaHelper,
                             (void *) &thread_data_array[t]);
-        if (rc)
-        {
-            printf("ERROR; return code from pthread_create() is %d\n", rc);
-            exit(-1);
-        }
-    }
-    
-    pthread_attr_destroy(&attr);
+    } 
+
+    qParaHelper((void *) &thread_data_array[tlevel-1]);
+
     //Now, join the left and right sides to finish.
-    for (t = 0; t < 2; t ++)
+    for (t = 0; t < tlevel-1; t ++)
     {
         rc = pthread_join(threads[t], &status);
-        if (rc)
-        {
-            printf("ERROR; return code from pthread_join() is %d\n", rc);
-            exit(-1);
-        }
     }
     
-    pthread_exit(NULL);
+    //pthread_exit(NULL);
 }
-
-
